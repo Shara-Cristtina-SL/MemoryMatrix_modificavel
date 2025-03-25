@@ -90,4 +90,4 @@ O Memory Matrix é o jogo perfeito para:
 que testam seus reflexos.
 ● Quem deseja aprimorar suas habilidades de memorização,
 concentração, tempo de reação e coordenação.
-● Entusiastas de programação com Raspberry Pi Pico W
+● Entusiastas de programação com Raspberry Pi Pico W.

@@ -7,6 +7,7 @@
 #include "hardware/gpio.h" // Biblioteca para controlar os GPIOs (General Purpose I/O)
 #include "hardware/adc.h"  // Biblioteca para usar o ADC (Analog-to-Digital Converter)
 #include "ws2818b.pio.h" // Biblioteca para controlar os LEDs WS2812B (NeoPixel) usando PIO
+#include "ssd1306.h"
 
 // Definições de pinos
 #define LED_COUNT 25       // Número de LEDs na matriz
@@ -22,21 +23,84 @@
 #define LED_ACERTO 11      // Pino GPIO conectado ao LED de acerto
 
 // Definições de cores
-#define COR_1_R 255        // Componente vermelha da cor 1
+#define COR_1_R 32        // Componente vermelha da cor 1
 #define COR_1_G 0          // Componente verde da cor 1
 #define COR_1_B 0          // Componente azul da cor 1
 #define COR_2_R 0          // Componente vermelha da cor 2
-#define COR_2_G 255        // Componente verde da cor 2
+#define COR_2_G 32        // Componente verde da cor 2
 #define COR_2_B 0          // Componente azul da cor 2
 #define COR_OFF_R 0          // Componente vermelha da cor apagada
 #define COR_OFF_G 0          // Componente verde da cor apagada
 #define COR_OFF_B 0          // Componente azul da cor apagada
 #define COR_PROGRESSO_R 0    // Componente vermelha da cor da barra de progresso
 #define COR_PROGRESSO_G 0    // Componente verde da cor da barra de progresso
-#define COR_PROGRESSO_B 255  // Componente azul da cor da barra de progresso
+#define COR_PROGRESSO_B 32  // Componente azul da cor da barra de progresso
 #define COR_NUMERO_R 0       // Componente vermelha da cor do número
 #define COR_NUMERO_G 0       // Componente verde da cor do número
-#define COR_NUMERO_B 255       // Componente azul da cor do número
+#define COR_NUMERO_B 32      // Componente azul da cor do número
+
+// definições da pinagem do display
+#define DISPLAY_WIDTH 128       // largura
+#define DISPLAY_HEIGHT 64       // altura
+#define I2C_SDA 14              // canal i2c de dados
+#define I2C_SCL 15              // canal i2c do clock
+#define DISPLAY_ADDRESS 0x3C    // endereço do display
+ssd1306_t display;              // instância do display
+
+// pinagem do botão B
+#define BTN_B 6
+bool button_is_active = false;
+
+// função que inicializa o display
+void display_init() {
+
+    // Inicializa I2C no canal 1
+    i2c_init(i2c1, 400 * 1000);                     // 400 kHz de frequênica
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);      // configura o SDA (sáida de dados)
+    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);      // configura o SCL (saída de clock)
+    gpio_pull_up(I2C_SDA);
+    gpio_pull_up(I2C_SCL);
+
+    // Inicializa o display
+    if (!ssd1306_init(&display, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_ADDRESS, i2c1)) { 
+        printf("Falha ao inicializar o display SSD1306\n");
+        return;
+    }
+    
+    // limpa o display, caso tenha algum conteúdo
+    ssd1306_clear(&display);
+    printf("Display SSD1306 inicializado com sucesso!\n");
+}
+
+void draw_initial_screen() {
+    ssd1306_clear(&display);    // limpa o que tiver no display
+
+    // escrevendo o menu com o indicativo da funcionalidade do botão B
+    ssd1306_draw_string(&display, 20, 0, 1, "MemoryMatrix");
+    ssd1306_draw_string(&display, 7, 25, 1, "B - Iniciar jogo");
+
+    ssd1306_show(&display);     // coloca conteúdo no display
+}
+
+// função para iniciar o botão B
+void button_init() {
+    gpio_init(BTN_B);               // inicia o pino gpio
+    gpio_set_dir(BTN_B, GPIO_IN);   // configura o botão como entrada
+    gpio_pull_up(BTN_B);            // estado padrão HIGH (alto)
+    button_is_active = true;        // altera o valor da variável de controle
+}
+
+void button_pressed_callback(uint pin_gpio, uint32_t event) {
+    // caso o botão estiver bloqueado, finaliza a ação
+    if (!button_is_active) return;
+
+    // bloqueia o botão
+    button_is_active = false;
+
+    ssd1306_clear(&display);
+    ssd1306_draw_string(&display, 10, 20, 2, "Botão B pressionado");
+    ssd1306_show(&display);
+}
 
 // Definição do tipo enum para as direções
 typedef enum {
@@ -502,9 +566,20 @@ void desenharNumero(int numero, int r, int g, int b) {
     npWrite(); // Envia os dados para os LEDs
 }
 
-int main() {
-    stdio_init_all(); // Inicializa a E/S padrão (stdio)
+// função que inicializa todos os dispositivos
+void setup() {
+    // inicializa a comunicação serial
+    stdio_init_all();
 
+    // inicializar o nosso display
+    display_init();
+
+    // inicializar o botão B
+    button_init();
+
+    // configurar interrupção para o botão quando houver uma descida de borda (1 para 0)
+    gpio_set_irq_enabled_with_callback(BTN_B, GPIO_IRQ_EDGE_FALL, true, button_pressed_callback);
+    
     // Inicializa os pinos do joystick
     gpio_init(JOYSTICK_VRX);
     gpio_init(JOYSTICK_VRY);
@@ -552,7 +627,11 @@ int main() {
 
     // Inicializa o gerador de números aleatórios com o tempo atual
     srand(time(NULL));
+}
 
+int main() {
+    setup();
+    draw_initial_screen();
     // Variáveis do jogo
     int nivel = 1;                 // Nível inicial do jogo
     const int MAX_SEQUENCIA = 9;   // Nível máximo do jogo

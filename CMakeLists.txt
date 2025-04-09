@@ -49,7 +49,9 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(memoryMatrix2 memoryMatrix2.c )
+add_executable(memoryMatrix2 
+    memoryMatrix2.c 
+    ssd1306/ssd1306.c)
 
 pico_set_program_name(memoryMatrix2 "memoryMatrix2")
 pico_set_program_version(memoryMatrix2 "0.1")
@@ -63,18 +65,23 @@ pico_enable_stdio_usb(memoryMatrix2 1)
 
 # Add the standard library to the build
 target_link_libraries(memoryMatrix2
-    pico_stdlib)
+    pico_stdlib
+    hardware_i2c
+    hardware_timer
+    hardware_pio
+    hardware_clocks
+    hardware_adc
+    )
 
 # Add the standard include files to the build
 target_include_directories(memoryMatrix2 PRIVATE
  ${CMAKE_CURRENT_LIST_DIR}
+ ${CMAKE_CURRENT_LIST_DIR}/ssd1306
 )
 
 # Add any user requested libraries
 target_link_libraries(memoryMatrix2 
-    hardware_pio
-    hardware_clocks
-    hardware_adc
+    
     )
 
 pico_add_extra_outputs(memoryMatrix2)
